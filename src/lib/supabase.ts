@@ -18,6 +18,9 @@ export type UltrasoundReport = {
   recommendations: string;
   referring_physician: string;
   radiologist_name: string;
+  pdf_file_name: string | null;
+  pdf_file_data: string | null;
+  pdf_file_size: number | null;
   created_at: string;
   updated_at: string;
 };

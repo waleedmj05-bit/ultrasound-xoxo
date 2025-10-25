@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, Upload, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ReportFormProps {
@@ -8,6 +8,7 @@ interface ReportFormProps {
 
 export function ReportForm({ onReportCreated }: ReportFormProps) {
   const [loading, setLoading] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     patient_name: '',
     patient_age: '',
@@ -27,10 +28,28 @@ export function ReportForm({ onReportCreated }: ReportFormProps) {
     setLoading(true);
 
     try {
+      let pdfData = null;
+      let pdfFileName = null;
+      let pdfFileSize = null;
+
+      if (pdfFile) {
+        const reader = new FileReader();
+        pdfData = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(pdfFile);
+        });
+        pdfFileName = pdfFile.name;
+        pdfFileSize = pdfFile.size;
+      }
+
       const { error } = await supabase.from('ultrasound_reports').insert([
         {
           ...formData,
           patient_age: parseInt(formData.patient_age),
+          pdf_file_data: pdfData,
+          pdf_file_name: pdfFileName,
+          pdf_file_size: pdfFileSize,
         },
       ]);
 
@@ -49,6 +68,7 @@ export function ReportForm({ onReportCreated }: ReportFormProps) {
         referring_physician: '',
         radiologist_name: '',
       });
+      setPdfFile(null);
 
       onReportCreated();
     } catch (error) {
@@ -66,6 +86,31 @@ export function ReportForm({ onReportCreated }: ReportFormProps) {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        alert('Please upload a PDF file only.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB.');
+        return;
+      }
+      setPdfFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setPdfFile(null);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   return (
@@ -244,6 +289,50 @@ export function ReportForm({ onReportCreated }: ReportFormProps) {
               rows={2}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              PDF Attachment (Optional)
+            </label>
+            {!pdfFile ? (
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="pdf-upload"
+                />
+                <label
+                  htmlFor="pdf-upload"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-colors"
+                >
+                  <Upload className="w-5 h-5 text-slate-400" />
+                  <span className="text-sm text-slate-600">
+                    Click to upload PDF (Max 10MB)
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">{pdfFile.name}</p>
+                    <p className="text-xs text-slate-500">{formatFileSize(pdfFile.size)}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveFile}
+                  className="p-1 hover:bg-blue-100 rounded transition-colors"
+                  title="Remove file"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

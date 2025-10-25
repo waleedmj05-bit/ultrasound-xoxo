@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, User, FileText, Trash2 } from 'lucide-react';
+import { Calendar, User, FileText, Trash2, Download } from 'lucide-react';
 import { UltrasoundReport, supabase } from '../lib/supabase';
 
 interface ReportListProps {
@@ -38,6 +38,23 @@ export function ReportList({ reports, onReportDeleted }: ReportListProps) {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const handleDownloadPdf = (report: UltrasoundReport) => {
+    if (!report.pdf_file_data || !report.pdf_file_name) return;
+
+    const link = document.createElement('a');
+    link.href = report.pdf_file_data;
+    link.download = report.pdf_file_name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (reports.length === 0) {
@@ -79,10 +96,16 @@ export function ReportList({ reports, onReportDeleted }: ReportListProps) {
                       {formatDate(report.examination_date)}
                     </span>
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-2 flex items-center gap-2">
                     <span className="inline-block px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                       {report.examination_type}
                     </span>
+                    {report.pdf_file_name && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                        <FileText className="w-3 h-3" />
+                        PDF
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button
@@ -187,6 +210,38 @@ export function ReportList({ reports, onReportDeleted }: ReportListProps) {
                   <p className="text-slate-700 leading-relaxed">
                     {selectedReport.recommendations}
                   </p>
+                </div>
+              )}
+
+              {selectedReport.pdf_file_name && selectedReport.pdf_file_data && (
+                <div className="pt-4 border-t border-slate-200">
+                  <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">
+                    Attachment
+                  </h3>
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          {selectedReport.pdf_file_name}
+                        </p>
+                        {selectedReport.pdf_file_size && (
+                          <p className="text-xs text-slate-500">
+                            {formatFileSize(selectedReport.pdf_file_size)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadPdf(selectedReport)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
