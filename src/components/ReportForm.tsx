@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { FileText, Upload, X } from 'lucide-react';
+import { FileText, Upload, X, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { extractTextFromPDF, parseUltrasoundReport } from '../utils/pdfExtractor';
 
 interface ReportFormProps {
   onReportCreated: () => void;
@@ -8,6 +9,7 @@ interface ReportFormProps {
 
 export function ReportForm({ onReportCreated }: ReportFormProps) {
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     patient_name: '',
@@ -100,6 +102,28 @@ export function ReportForm({ onReportCreated }: ReportFormProps) {
         return;
       }
       setPdfFile(file);
+    }
+  };
+
+  const handleExtractFromPdf = async () => {
+    if (!pdfFile) return;
+
+    setExtracting(true);
+    try {
+      const text = await extractTextFromPDF(pdfFile);
+      const extractedData = parseUltrasoundReport(text);
+
+      setFormData((prev) => ({
+        ...prev,
+        ...extractedData,
+      }));
+
+      alert('PDF data extracted successfully! Please review and correct any fields as needed.');
+    } catch (error) {
+      console.error('Error extracting PDF data:', error);
+      alert('Failed to extract data from PDF. Please fill in the form manually.');
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -315,21 +339,32 @@ export function ReportForm({ onReportCreated }: ReportFormProps) {
                 </label>
               </div>
             ) : (
-              <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{pdfFile.name}</p>
-                    <p className="text-xs text-slate-500">{formatFileSize(pdfFile.size)}</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{pdfFile.name}</p>
+                      <p className="text-xs text-slate-500">{formatFileSize(pdfFile.size)}</p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="p-1 hover:bg-blue-100 rounded transition-colors"
+                    title="Remove file"
+                  >
+                    <X className="w-4 h-4 text-slate-500" />
+                  </button>
                 </div>
                 <button
                   type="button"
-                  onClick={handleRemoveFile}
-                  className="p-1 hover:bg-blue-100 rounded transition-colors"
-                  title="Remove file"
+                  onClick={handleExtractFromPdf}
+                  disabled={extracting}
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  <X className="w-4 h-4 text-slate-500" />
+                  <Sparkles className="w-4 h-4" />
+                  {extracting ? 'Extracting Data...' : 'Auto-Fill from PDF'}
                 </button>
               </div>
             )}
